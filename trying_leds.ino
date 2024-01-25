@@ -63,7 +63,7 @@ class Color {
     float V = (float) value / 255.0;
 
     //Calculate some extra variables.
-    //Formula from rapidtables.com <-- shitty site :-1:
+    //Formula from rapidtables.com
     float C = V * S;
     float X = C * (float) (1 - abs(((H / 60) % 2) - 1));
     float m = V - C;
