@@ -10,9 +10,6 @@ TODO:
 #include<string.h>
 
 const int SENSOR_PIN = 5;
-//Playing with a constant saturation, should give a more pastel-colored light
-const float SATURATION = 0.5;
-const float VALUE = 1.0;
 //The number of seconds it takes for the hue scroller to complete a full rotation
 const float HUE_CYCLE = 5.0;
 
@@ -21,28 +18,31 @@ class LightPin {
   private:
 
   int PIN;     //the pin number
-  int intens;  //the intensity from 0-255
+  int _intensity;
 
   public:
 
   LightPin(int _pin) {
     PIN = _pin;
-    intens = 0;
     pinMode(PIN, OUTPUT);
   }
 
-  //set the intensity
-  void setIntensity(int _intensity) {
-    intens = constrain(_intensity, 0, 255);
+  void on() {
+    digitalWrite(PIN, HIGH);
+  }
+
+  void off() {
+    digitalWrite(PIN, LOW);
+  }
+
+  void setIntensity(int intensity) {
+    _intensity = intensity;
   }
 
   int getIntensity() {
-    return intens;
+    return _intensity;
   }
 
-  int getPin() {
-    return PIN;
-  }
 };
 
 class Color {
@@ -57,50 +57,30 @@ class Color {
   * values already calculated and assign them(internal)
   */
   void calculateRGB() {
-    //Transform sat and val to decimal
-    int H = hue * 360 / 255;
-    float S = (float) saturation / 255.0;
-    float V = (float) value / 255.0;
-
-    //Calculate some extra variables.
-    //Formula from rapidtables.com
-    float C = V * S;
-    float X = C * (float) (1 - abs(((H / 60) % 2) - 1));
-    float m = V - C;
-    float Rp, Gp, Bp;
-
-    //Assign RGB prime values
-    H = 6 * (int) ( H / 360.0);
-    if (H == 0) {
-      Rp = C;
-      Gp = X;
-      Bp = 0.0;
-    } else if (H == 1) {
-      Rp = X;
-      Gp = C;
-      Bp = 0.0;
-    } else if (H == 2) {
-      Rp = 0.0;
-      Gp = C;
-      Bp = X;
-    } else if (H == 3) {
-      Rp = 0.0;
-      Gp = X;
-      Bp = C;
-    } else if (H == 4) {
-      Rp = X;
-      Gp = 0.0;
-      Bp = C;
-    } else if (H == 5) {
-      Rp = C;
-      Gp = 0.0;
-      Bp = X;
+    float r, g, b;
+	
+    float h = (float) hue / 255;
+    float s = (float) saturation / 255;
+    float v = (float) value / 255;
+    
+    int i = floor(h * 6);
+    float f = h * 6 - i;
+    float p = v * (1 - s);
+    float q = v * (1 - f * s);
+    float t = v * (1 - (1 - f) * s);
+    
+    switch (i % 6) {
+      case 0: r = v, g = t, b = p; break;
+      case 1: r = q, g = v, b = p; break;
+      case 2: r = p, g = v, b = t; break;
+      case 3: r = p, g = q, b = v; break;
+      case 4: r = t, g = p, b = v; break;
+      case 5: r = v, g = p, b = q; break;
     }
-
-    // Assign the RGB values to integers 0-255
-    red = (int) ((Rp + m) * 255);
-    green = (int) ((Gp + m) * 255);
-    blue = (int) ((Bp + m) * 255);
+    
+    red = r * 255;
+    green = g * 255;
+    blue = b * 255;
   }
 
   public:
@@ -172,22 +152,21 @@ class Color {
   * Writes the color's properties to the Serial monitor
   */
   void writeOut() {
-    Serial.write("\n--------\n");
-    Serial.write("RGB: ");
+    Serial.println("\n--------");
+    Serial.print("RGB: ");
     Serial.print(red);
-    Serial.write(", ");
+    Serial.print(", ");
     Serial.print(green);
-    Serial.write(", ");
-    Serial.print(blue);
-    Serial.write("\n");
-    Serial.write("HSV: ");
+    Serial.print(", ");
+    Serial.println(blue);
+    Serial.print("HSV: ");
     Serial.print(hue);
-    Serial.write(", ");
+    Serial.print(", ");
     Serial.print(saturation);
-    Serial.write(", ");
+    Serial.print(", ");
     Serial.print(value);
-    Serial.write("\n--------");
-
+    Serial.print("\n--------");
+    Serial.flush();
   }
   
 };
@@ -215,40 +194,60 @@ void setup() {
   //Initialize the masterColor object
   masterColor = Color();
 
-  //Begin the serial at 9600 baud.
+  //Begin the serial.
   Serial.begin(9600);
   Serial.flush();
 }
 
 // Debounce for sensor readings
 bool debounce = false;
+
 // The main loop for the program
 void loop() {
-
-  int period = 255;
-
-  masterColor.setHSV((int) masterHue, (int) (SATURATION * 255.0), (int) (VALUE * 255.0));
-  //Update the master hue
-  float dt = (float) (millis() - lastHueUpdate) / 1000.0;  // Time since last update in seconds
-  masterHue = (int) (masterHue + ((255.0 / HUE_CYCLE) * dt)) % 255;
-  lastHueUpdate = millis();
-
-  // Print the master color:
-  masterColor.writeOut();
-
-  delay(500);
 
   //read motion sensor pin
   bool sensorReading = digitalRead(SENSOR_PIN);
 
   if (sensorReading == HIGH && !debounce) {
     debounce = true;
-    Serial.write("Turned on");
-    return;
+    Serial.println("Turned on");
+  } else if (sensorReading == LOW && debounce) {
+    debounce = false;
+    Serial.println("Turned off");
   }
 
-  if (sensorReading == LOW && debounce) {
-    debounce = false;
-    Serial.write("Turned off");
+  // The lights should be on if this is true
+  if (sensorReading == HIGH && debounce) {
+
+      int period = 255;
+
+      masterColor.setHSV((int) masterHue, 255, 255);
+
+      //Update the master hue
+      float dt = (float) (millis() - lastHueUpdate) / 1000.0;  // Time since last update in seconds
+      masterHue = (int) (masterHue + ((255.0 / HUE_CYCLE) * dt)) % 255;
+      lastHueUpdate = millis();
+
+      redPin.setIntensity(masterColor.getRed());
+      greenPin.setIntensity(masterColor.getGreen());
+      bluePin.setIntensity(masterColor.getBlue());
+
+      //I'm so sorry for the below implementation.
+
+      LightPin pins[3] = {redPin, greenPin, bluePin};
+      redPin.on(); greenPin.on(); bluePin.on();
+      int pinsOnTimestamp = micros();
+      int pinsOn = 3;
+      while (pinsOn > 0) {
+        int deltaMicroSeconds = micros() - pinsOnTimestamp;
+        if (redPin.getIntensity() >= deltaMicroSeconds) {redPin.off(); pinsOn -= 1;}
+        if (greenPin.getIntensity() >= deltaMicroSeconds) {greenPin.off(); pinsOn -= 1;}
+        if (bluePin.getIntensity() >= deltaMicroSeconds) {bluePin.off(); pinsOn -= 1;}
+      }
+
+
+      // Print the master color:
+      // masterColor.writeOut();
   }
+
 }
