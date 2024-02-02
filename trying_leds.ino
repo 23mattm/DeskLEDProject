@@ -2,7 +2,6 @@
 LED Project
 
 TODO:
--Implement LightPin class
 -Implement precise timing in loop() function
 -Implement HSV -> RGB and Hue 'autoscroll'
 **/
@@ -11,7 +10,7 @@ TODO:
 
 const int SENSOR_PIN = 5;
 //The number of seconds it takes for the hue scroller to complete a full rotation
-const float HUE_CYCLE = 5.0;
+const float HUE_CYCLE = 30.0;
 
 class LightPin {
 
@@ -180,6 +179,7 @@ LightPin bluePin = NULL;
 //The color object that will control the color of the strip
 Color masterColor;
 float masterHue = 0.0;
+float cachedHue = masterHue;
 int lastHueUpdate = millis();
 
 void setup() {
@@ -193,6 +193,8 @@ void setup() {
 
   //Initialize the masterColor object
   masterColor = Color();
+  masterColor.setHSV((int) cachedHue, 255, 255);
+
 
   //Begin the serial.
   Serial.begin(9600);
@@ -208,46 +210,63 @@ void loop() {
   //read motion sensor pin
   bool sensorReading = digitalRead(SENSOR_PIN);
 
+
   if (sensorReading == HIGH && !debounce) {
     debounce = true;
-    Serial.println("Turned on");
+    Serial.println("HIGH");
+    redPin.on();
+    greenPin.on();
+    bluePin.on();
   } else if (sensorReading == LOW && debounce) {
     debounce = false;
-    Serial.println("Turned off");
+    Serial.println("LOW");
+    redPin.off();
+    greenPin.off();
+    bluePin.off();
   }
 
-  // The lights should be on if this is true
-  if (sensorReading == HIGH && debounce) {
+  //Scrapping the hue-scrolling for now
+  /**
 
-      int period = 255;
-
-      masterColor.setHSV((int) masterHue, 255, 255);
-
-      //Update the master hue
-      float dt = (float) (millis() - lastHueUpdate) / 1000.0;  // Time since last update in seconds
-      masterHue = (int) (masterHue + ((255.0 / HUE_CYCLE) * dt)) % 255;
-      lastHueUpdate = millis();
-
-      redPin.setIntensity(masterColor.getRed());
-      greenPin.setIntensity(masterColor.getGreen());
-      bluePin.setIntensity(masterColor.getBlue());
-
-      //I'm so sorry for the below implementation.
-
-      LightPin pins[3] = {redPin, greenPin, bluePin};
-      redPin.on(); greenPin.on(); bluePin.on();
-      int pinsOnTimestamp = micros();
-      int pinsOn = 3;
-      while (pinsOn > 0) {
-        int deltaMicroSeconds = micros() - pinsOnTimestamp;
-        if (redPin.getIntensity() >= deltaMicroSeconds) {redPin.off(); pinsOn -= 1;}
-        if (greenPin.getIntensity() >= deltaMicroSeconds) {greenPin.off(); pinsOn -= 1;}
-        if (bluePin.getIntensity() >= deltaMicroSeconds) {bluePin.off(); pinsOn -= 1;}
-      }
+      // int period = 255;
 
 
-      // Print the master color:
-      // masterColor.writeOut();
-  }
+      // //Update the master hue
+      // float dt = (float) (millis() - lastHueUpdate) / 1000.0;  // Time since last update in seconds
+      // masterHue = (int) (masterHue + ((255.0 / HUE_CYCLE) * dt));
+      // masterHue = (int) masterHue % 255;
+
+      // if (masterHue != cachedHue) {
+      //   cachedHue = masterHue;
+      //   masterColor.setHSV((int) cachedHue, 255, 255);
+
+      //   // Serial.println("cachedHue and masterHue:");
+      //   // Serial.println(masterColor.getHue());
+      //   // Serial.println(masterHue);
+
+
+      //   lastHueUpdate = millis();
+      // }
+
+
+
+      // redPin.setIntensity(masterColor.getRed());
+      // greenPin.setIntensity(masterColor.getGreen());
+      // bluePin.setIntensity(masterColor.getBlue());
+
+      // //I'm so sorry for the below implementation.
+      // redPin.on(); greenPin.on(); bluePin.on();
+      // int pinsOnTimestamp = micros();
+      // int pinsOn = 3;
+      // while (pinsOn > 0) {
+      // // while (micros() - pinsOnTimestamp < 255) {
+      //   int deltaMicroSeconds = micros() - pinsOnTimestamp;
+      //   if (redPin.getIntensity() >= deltaMicroSeconds) {redPin.off(); pinsOn -= 1;}
+      //   if (greenPin.getIntensity() >= deltaMicroSeconds) {greenPin.off(); pinsOn -= 1;}
+      //   if (bluePin.getIntensity() >= deltaMicroSeconds) {bluePin.off(); pinsOn -= 1;}
+      // }
+
+  // }
+  */
 
 }
